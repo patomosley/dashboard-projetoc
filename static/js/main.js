@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadStats();
     initCharts();
 
+    // Evento para criar novo projeto
     document.getElementById('projectForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const formData = new FormData(e.target);
@@ -21,8 +22,47 @@ document.addEventListener('DOMContentLoaded', () => {
             e.target.reset();
             loadProjects();
             loadStats();
+            showAlert('Projeto criado com sucesso!', 'success');
+        } else {
+            showAlert('Erro ao criar projeto!', 'danger');
         }
     });
+
+    // Evento para editar projeto
+    document.getElementById('editProjectForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const projectId = document.getElementById('editProjectId').value;
+        
+        const data = {
+            contract_protocol: document.getElementById('edit_contract_protocol').value,
+            name: document.getElementById('edit_name').value,
+            monthly_value: document.getElementById('edit_monthly_value').value,
+            contact: document.getElementById('edit_contact').value,
+            scheduled_date: document.getElementById('edit_scheduled_date').value,
+            client_type: document.getElementById('edit_client_type').value,
+            status: document.getElementById('edit_status').value
+        };
+        
+        const response = await fetch(`/api/projects/${projectId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        if (response.ok) {
+            bootstrap.Modal.getInstance(document.getElementById('editProjectModal')).hide();
+            loadProjects();
+            loadStats();
+            showAlert('Projeto atualizado com sucesso!', 'success');
+        } else {
+            showAlert('Erro ao atualizar projeto!', 'danger');
+        }
+    });
+
+    // Evento para filtros
+    document.getElementById('searchInput').addEventListener('keyup', applyFilters);
+    document.getElementById('statusFilter').addEventListener('change', applyFilters);
+    document.getElementById('clientTypeFilter').addEventListener('change', applyFilters);
 });
 
 async function loadProjects() {
@@ -41,8 +81,15 @@ async function loadProjects() {
             <td>${new Date(p.scheduled_date).toLocaleDateString('pt-BR')}</td>
             <td><span class="badge bg-${getStatusColor(p.status)}">${p.status}</span></td>
             <td>
-                <button class="btn btn-sm btn-outline-secondary" onclick="openObs(${p.id})"><i class="bi bi-chat-text"></i></button>
-                <button class="btn btn-sm btn-outline-success" onclick="updateStatus(${p.id}, 'Concluído')"><i class="bi bi-check-lg"></i></button>
+                <button class="btn btn-sm btn-outline-primary" onclick="openEditModal(${p.id})" title="Editar">
+                    <i class="bi bi-pencil"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-secondary" onclick="openObs(${p.id})" title="Observações">
+                    <i class="bi bi-chat-text"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-success" onclick="updateStatus(${p.id}, 'Concluído')" title="Marcar como concluído">
+                    <i class="bi bi-check-lg"></i>
+                </button>
             </td>
         `;
         list.appendChild(row);
@@ -140,6 +187,92 @@ function updateCharts(stats) {
     clientChart.update();
 }
 
+// ===== FUNÇÕES DE EDIÇÃO E EXCLUSÃO =====
+
+async function openEditModal(id) {
+    const response = await fetch(`/api/projects/${id}`);
+    const project = await response.json();
+    
+    document.getElementById('editProjectId').value = project.id;
+    document.getElementById('edit_contract_protocol').value = project.contract_protocol;
+    document.getElementById('edit_name').value = project.name;
+    document.getElementById('edit_monthly_value').value = project.monthly_value;
+    document.getElementById('edit_contact').value = project.contact;
+    document.getElementById('edit_scheduled_date').value = project.scheduled_date;
+    document.getElementById('edit_client_type').value = project.client_type;
+    document.getElementById('edit_status').value = project.status;
+    
+    new bootstrap.Modal(document.getElementById('editProjectModal')).show();
+}
+
+async function deleteProject() {
+    const projectId = document.getElementById('editProjectId').value;
+    
+    if (confirm('Tem certeza que deseja deletar este projeto? Esta ação não pode ser desfeita.')) {
+        const response = await fetch(`/api/projects/${projectId}`, {
+            method: 'DELETE'
+        });
+
+        if (response.ok) {
+            bootstrap.Modal.getInstance(document.getElementById('editProjectModal')).hide();
+            loadProjects();
+            loadStats();
+            showAlert('Projeto deletado com sucesso!', 'success');
+        } else {
+            showAlert('Erro ao deletar projeto!', 'danger');
+        }
+    }
+}
+
+// ===== FUNÇÕES DE FILTRO =====
+
+async function applyFilters() {
+    const search = document.getElementById('searchInput').value;
+    const status = document.getElementById('statusFilter').value;
+    const clientType = document.getElementById('clientTypeFilter').value;
+    
+    const params = new URLSearchParams();
+    if (search) params.append('search', search);
+    if (status) params.append('status', status);
+    if (clientType) params.append('client_type', clientType);
+    
+    const response = await fetch(`/api/projects?${params.toString()}`);
+    const projects = await response.json();
+    const list = document.getElementById('project-list');
+    list.innerHTML = '';
+
+    if (projects.length === 0) {
+        list.innerHTML = '<tr><td colspan="7" class="text-center text-muted">Nenhum projeto encontrado</td></tr>';
+        return;
+    }
+
+    projects.forEach(p => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${p.contract_protocol}</td>
+            <td>${p.name}</td>
+            <td>R$ ${p.monthly_value.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+            <td>${p.client_type}</td>
+            <td>${new Date(p.scheduled_date).toLocaleDateString('pt-BR')}</td>
+            <td><span class="badge bg-${getStatusColor(p.status)}">${p.status}</span></td>
+            <td>
+                <button class="btn btn-sm btn-outline-primary" onclick="openEditModal(${p.id})" title="Editar">
+                    <i class="bi bi-pencil"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-secondary" onclick="openObs(${p.id})" title="Observações">
+                    <i class="bi bi-chat-text"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-success" onclick="updateStatus(${p.id}, 'Concluído')" title="Marcar como concluído">
+                    <i class="bi bi-check-lg"></i>
+                </button>
+            </td>
+        `;
+        list.appendChild(row);
+    });
+}
+
+// ===== FUNÇÕES DE OBSERVAÇÕES =====
+
 let currentProjectId = null;
 async function openObs(id) {
     currentProjectId = id;
@@ -170,6 +303,7 @@ document.getElementById('btn-save-obs').addEventListener('click', async () => {
     if (response.ok) {
         document.getElementById('new-obs-content').value = '';
         openObs(currentProjectId);
+        showAlert('Observação adicionada!', 'success');
     }
 });
 
@@ -183,5 +317,91 @@ async function updateStatus(id, status) {
     if (response.ok) {
         loadProjects();
         loadStats();
+        showAlert('Status atualizado!', 'success');
     }
+}
+
+// ===== FUNÇÕES DE IMPORTAÇÃO/EXPORTAÇÃO =====
+
+async function exportToExcel() {
+    try {
+        const response = await fetch('/api/export/excel');
+        const blob = await response.blob();
+        
+        // Criar link de download
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `projetos_export_${new Date().toISOString().slice(0, 10)}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        
+        showAlert('Arquivo exportado com sucesso!', 'success');
+    } catch (error) {
+        showAlert('Erro ao exportar arquivo!', 'danger');
+        console.error(error);
+    }
+}
+
+async function importFromExcel() {
+    const fileInput = document.getElementById('importFile');
+    const file = fileInput.files[0];
+    
+    if (!file) {
+        showAlert('Por favor, selecione um arquivo!', 'warning');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    try {
+        const response = await fetch('/api/import/excel', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            let message = `${result.imported_count} projetos importados com sucesso!`;
+            if (result.errors.length > 0) {
+                message += `\n\nErros encontrados:\n${result.errors.join('\n')}`;
+            }
+            
+            showAlert(message, 'success');
+            fileInput.value = '';
+            bootstrap.Modal.getInstance(document.getElementById('importModal')).hide();
+            loadProjects();
+            loadStats();
+        } else {
+            showAlert(`Erro: ${result.error}`, 'danger');
+        }
+    } catch (error) {
+        showAlert('Erro ao importar arquivo!', 'danger');
+        console.error(error);
+    }
+}
+
+// ===== FUNÇÃO AUXILIAR =====
+
+function showAlert(message, type) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    alertDiv.setAttribute('role', 'alert');
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    // Inserir no topo do container
+    const container = document.querySelector('.container-fluid');
+    container.insertBefore(alertDiv, container.firstChild);
+    
+    // Remover após 5 segundos
+    setTimeout(() => {
+        alertDiv.remove();
+    }, 5000);
 }

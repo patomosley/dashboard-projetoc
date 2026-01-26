@@ -83,12 +83,52 @@
 
         <!-- Ações e Lista -->
         <div class="card mb-4">
-            <div class="card-header d-flex justify-content-between align-items-center">
+            <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <span>Lista de Projetos</span>
-                <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#newProjectModal">
-                    <i class="bi bi-plus-lg"></i> Novo Projeto
-                </button>
+                <div class="btn-group" role="group">
+                    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#newProjectModal">
+                        <i class="bi bi-plus-lg"></i> Novo Projeto
+                    </button>
+                    <button class="btn btn-success btn-sm" onclick="exportToExcel()">
+                        <i class="bi bi-download"></i> Exportar Excel
+                    </button>
+                    <button class="btn btn-info btn-sm" data-bs-toggle="modal" data-bs-target="#importModal">
+                        <i class="bi bi-upload"></i> Importar Excel
+                    </button>
+                </div>
             </div>
+            
+            <!-- Filtros -->
+            <div class="card-body border-bottom">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <input type="text" class="form-control form-control-sm" id="searchInput" placeholder="Buscar por nome, protocolo ou contato...">
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select form-select-sm" id="statusFilter">
+                            <option value="">Todos os Status</option>
+                            <option value="Pendente">Pendente</option>
+                            <option value="Em Andamento">Em Andamento</option>
+                            <option value="Concluído">Concluído</option>
+                            <option value="Atrasado">Atrasado</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select form-select-sm" id="clientTypeFilter">
+                            <option value="">Todos os Tipos</option>
+                            <option value="B2G">B2G</option>
+                            <option value="ISP">ISP</option>
+                            <option value="B2B">B2B</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <button class="btn btn-outline-secondary btn-sm w-100" onclick="applyFilters()">
+                            <i class="bi bi-funnel"></i> Filtrar
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <div class="card-body">
                 <div class="table-responsive">
                     <table class="table table-hover">
@@ -157,6 +197,64 @@
         </div>
     </div>
 
+    <!-- Modal Editar Projeto -->
+    <div class="modal fade" id="editProjectModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Editar Projeto</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editProjectForm">
+                        <input type="hidden" id="editProjectId">
+                        <div class="mb-3">
+                            <label class="form-label">CONTRATO/PROTOCOLO</label>
+                            <input type="text" class="form-control" id="edit_contract_protocol" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">NOME</label>
+                            <input type="text" class="form-control" id="edit_name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">VALOR MENSAL</label>
+                            <input type="number" step="0.01" class="form-control" id="edit_monthly_value" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">CONTATO</label>
+                            <input type="text" class="form-control" id="edit_contact" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">DATA DE AGENDAMENTO</label>
+                            <input type="date" class="form-control" id="edit_scheduled_date" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">TIPO DE CLIENTE</label>
+                            <select class="form-select" id="edit_client_type" required>
+                                <option value="B2G">B2G</option>
+                                <option value="ISP">ISP</option>
+                                <option value="B2B">B2B</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">STATUS</label>
+                            <select class="form-select" id="edit_status" required>
+                                <option value="Pendente">Pendente</option>
+                                <option value="Em Andamento">Em Andamento</option>
+                                <option value="Concluído">Concluído</option>
+                                <option value="Atrasado">Atrasado</option>
+                            </select>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary flex-grow-1">Salvar Alterações</button>
+                            <button type="button" class="btn btn-danger" onclick="deleteProject()">Deletar</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal Observações -->
     <div class="modal fade" id="obsModal" tabindex="-1">
         <div class="modal-dialog">
@@ -174,6 +272,26 @@
                         <textarea id="new-obs-content" class="form-control" placeholder="Adicionar nova observação..."></textarea>
                         <button class="btn btn-outline-primary" type="button" id="btn-save-obs">Salvar</button>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Importar Excel -->
+    <div class="modal fade" id="importModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Importar Projetos do Excel</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Selecione o arquivo Excel (.xlsx)</label>
+                        <input type="file" class="form-control" id="importFile" accept=".xlsx" required>
+                    </div>
+                    <div id="importMessage" class="alert" style="display: none;"></div>
+                    <button class="btn btn-primary w-100" onclick="importFromExcel()">Importar</button>
                 </div>
             </div>
         </div>
