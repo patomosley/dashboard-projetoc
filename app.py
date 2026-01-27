@@ -1,11 +1,47 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for, send_file
 from models import db, Project, Observation
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 from io import BytesIO
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# Configurações de e-mail (use variáveis de ambiente)
+SMTP_SERVER = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
+SMTP_PORT = int(os.getenv('SMTP_PORT', 587))
+EMAIL_USER = os.getenv('EMAIL_USER', 'seu_email@gmail.com')
+EMAIL_PASSWORD = os.getenv('EMAIL_PASSWORD', 'sua_senha_app')
+
+def send_email(recipient_email, subject, body, html_body=None):
+    """Envia e-mail para o cliente"""
+    try:
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From'] = EMAIL_USER
+        msg['To'] = recipient_email
+        
+        # Versão em texto plano
+        msg.attach(MIMEText(body, 'plain'))
+        
+        # Versão em HTML (se fornecida)
+        if html_body:
+            msg.attach(MIMEText(html_body, 'html'))
+        
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+            server.starttls()
+            server.login(EMAIL_USER, EMAIL_PASSWORD)
+            server.send_message(msg)
+        
+        return True, "E-mail enviado com sucesso!"
+    except Exception as e:
+        return False, f"Erro ao enviar e-mail: {str(e)}"
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///projects.db'
@@ -139,6 +175,124 @@ def handle_observations(id):
         'timestamp': o.timestamp.strftime('%d/%m/%Y %H:%M:%S')
     } for o in observations])
 
+@app.route('/api/projects/<int:id>/send-email', methods=['POST'])
+def send_project_email(id):
+    """Envia e-mail para o cliente sobre o projeto"""
+    project = Project.query.get_or_404(id)
+    data = request.json
+    
+    subject = data.get('subject', f'Atualização - Projeto {project.name}')
+    message = data.get('message', '')
+    
+    # Criar corpo do e-mail em HTML
+    html_body = f"""
+    <html>
+        <body style="font-family: Arial, sans-serif; color: #333;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8f9fa; border-radius: 8px;">
+                <h2 style="color: #0d6efd; border-bottom: 2px solid #0d6efd; padding-bottom: 10px;">
+                    Atualização de Projeto
+                </h2>
+                
+                <div style="margin: 20px 0; background-color: white; padding: 15px; border-radius: 5px;">
+                    <p><strong>Projeto:</strong> {project.name}</p>
+                    <p><strong>Protocolo:</strong> {project.contract_protocol}</p>
+                    <p><strong>Status:</strong> <span style="background-color: #e7f3ff; padding: 5px 10px; border-radius: 3px;">{project.status}</span></p>
+                    <p><strong>Valor Mensal:</strong> R$ {project.monthly_value:,.2f}</p>
+                    <p><strong>Data de Agendamento:</strong> {project.scheduled_date.strftime('%d/%m/%Y')}</p>
+                </div>
+                
+                <div style="margin: 20px 0; background-color: white; padding: 15px; border-radius: 5px;">
+                    <h3 style="color: #0d6efd; margin-top: 0;">Mensagem:</h3>
+                    <p>{message}</p>
+                </div>
+                
+                <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd; font-size: 12px; color: #666;">
+                    <p>Este é um e-mail automático do sistema ProjectTracker. Não responda este e-mail.</p>
+                </div>
+            </div>
+        </body>
+    </html>
+    """
+    
+    text_body = f"""
+Atualização de Projeto
+
+Projeto: {project.name}
+Protocolo: {project.contract_protocol}
+Status: {project.status}
+Valor Mensal: R$ {project.monthly_value:,.2f}
+Data de Agendamento: {project.scheduled_date.strftime('%d/%m/%Y')}
+
+Mensagem:
+{message}
+
+---
+Este é um e-mail automático do sistema ProjectTracker.
+    """
+    
+    success, msg = send_email(project.contact, subject, text_body, html_body)
+    
+    if success:
+        return jsonify({'message': msg}), 200
+    else:
+        return jsonify({'error': msg}), 400
+
+@app.route('/api/alerts', methods=['GET'])
+def get_alerts():
+    """Retorna alertas inteligentes sobre projetos críticos"""
+    projects = Project.query.all()
+    alerts = []
+    today = datetime.now().date()
+    
+    for project in projects:
+        alert_data = {
+            'id': project.id,
+            'project_name': project.name,
+            'type': None,
+            'message': None,
+            'severity': None,
+            'action': None
+        }
+        
+        # Alerta 1: Projetos atrasados
+        if project.status == 'Atrasado':
+            alert_data['type'] = 'atrasado'
+            alert_data['severity'] = 'danger'
+            alert_data['message'] = f'Projeto "{project.name}" está ATRASADO!'
+            alert_data['action'] = 'Contatar cliente'
+            alerts.append(alert_data)
+        
+        # Alerta 2: Projetos próximos do vencimento
+        scheduled_date = project.scheduled_date.date()
+        days_until = (scheduled_date - today).days
+        
+        if 0 <= days_until <= 3 and project.status in ['Pendente', 'Em Andamento']:
+            alert_data['type'] = 'proximo_vencimento'
+            alert_data['severity'] = 'warning'
+            alert_data['message'] = f'Projeto "{project.name}" vence em {days_until} dia(s)!'
+            alert_data['action'] = 'Acelerar entrega'
+            alerts.append(alert_data)
+        
+        # Alerta 3: Projetos vencidos
+        if scheduled_date < today and project.status != 'Concluído':
+            alert_data['type'] = 'vencido'
+            alert_data['severity'] = 'danger'
+            alert_data['message'] = f'Projeto "{project.name}" está vencido há {(today - scheduled_date).days} dia(s)!'
+            alert_data['action'] = 'Ação urgente'
+            alerts.append(alert_data)
+        
+        # Alerta 4: Projetos em andamento há muito tempo
+        if project.status == 'Em Andamento':
+            days_in_progress = (today - project.scheduled_date.date()).days
+            if days_in_progress > 30:
+                alert_data['type'] = 'em_andamento_longo'
+                alert_data['severity'] = 'info'
+                alert_data['message'] = f'Projeto "{project.name}" está em andamento há {days_in_progress} dias'
+                alert_data['action'] = 'Verificar progresso'
+                alerts.append(alert_data)
+    
+    return jsonify(alerts)
+
 @app.route('/api/stats')
 def get_stats():
     projects = Project.query.all()
@@ -171,6 +325,7 @@ def get_stats():
         'monthly_history': monthly_stats
     }
     return jsonify(stats)
+
 
 @app.route('/api/export/excel', methods=['GET'])
 def export_excel():

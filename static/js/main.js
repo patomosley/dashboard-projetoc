@@ -1,9 +1,15 @@
 let deliveryChart, clientChart, revenueChart;
+let currentProjectId = null;
+let obsModalInstance = null;
 
 document.addEventListener('DOMContentLoaded', () => {
     loadProjects();
     loadStats();
+    loadAlerts();
     initCharts();
+    
+    // Atualizar alertas a cada 30 segundos
+    setInterval(loadAlerts, 30000);
 
     // Evento para criar novo projeto
     document.getElementById('projectForm').addEventListener('submit', async (e) => {
@@ -22,6 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
             e.target.reset();
             loadProjects();
             loadStats();
+            loadAlerts();
             showAlert('Projeto criado com sucesso!', 'success');
         } else {
             showAlert('Erro ao criar projeto!', 'danger');
@@ -53,6 +60,7 @@ document.addEventListener('DOMContentLoaded', () => {
             bootstrap.Modal.getInstance(document.getElementById('editProjectModal')).hide();
             loadProjects();
             loadStats();
+            loadAlerts();
             showAlert('Projeto atualizado com sucesso!', 'success');
         } else {
             showAlert('Erro ao atualizar projeto!', 'danger');
@@ -90,6 +98,9 @@ async function loadProjects() {
                 <button class="btn btn-sm btn-outline-success" onclick="updateStatus(${p.id}, 'Concluído')" title="Marcar como concluído">
                     <i class="bi bi-check-lg"></i>
                 </button>
+                <button class="btn btn-sm btn-outline-info" onclick="openEmailModal(${p.id})" title="Enviar e-mail">
+                    <i class="bi bi-envelope"></i>
+                </button>
             </td>
         `;
         list.appendChild(row);
@@ -117,6 +128,49 @@ async function loadStats() {
     document.getElementById('stat-sla').innerText = `${sla}%`;
 
     updateCharts(stats);
+}
+
+async function loadAlerts() {
+    const response = await fetch('/api/alerts');
+    const alerts = await response.json();
+    const alertContainer = document.getElementById('alerts-container');
+    
+    if (!alertContainer) return;
+    
+    alertContainer.innerHTML = '';
+    
+    if (alerts.length === 0) {
+        alertContainer.innerHTML = '<div class="alert alert-success"><i class="bi bi-check-circle"></i> Nenhum alerta no momento!</div>';
+        return;
+    }
+    
+    alerts.forEach(alert => {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${alert.severity} alert-dismissible fade show`;
+        alertDiv.setAttribute('role', 'alert');
+        
+        let icon = '';
+        switch(alert.type) {
+            case 'atrasado':
+            case 'vencido':
+                icon = '<i class="bi bi-exclamation-triangle-fill"></i>';
+                break;
+            case 'proximo_vencimento':
+                icon = '<i class="bi bi-clock-history"></i>';
+                break;
+            case 'em_andamento_longo':
+                icon = '<i class="bi bi-info-circle"></i>';
+                break;
+        }
+        
+        alertDiv.innerHTML = `
+            ${icon} <strong>${alert.message}</strong>
+            <br><small>${alert.action}</small>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        alertContainer.appendChild(alertDiv);
+    });
 }
 
 function initCharts() {
@@ -217,6 +271,7 @@ async function deleteProject() {
             bootstrap.Modal.getInstance(document.getElementById('editProjectModal')).hide();
             loadProjects();
             loadStats();
+            loadAlerts();
             showAlert('Projeto deletado com sucesso!', 'success');
         } else {
             showAlert('Erro ao deletar projeto!', 'danger');
@@ -242,7 +297,7 @@ async function applyFilters() {
     list.innerHTML = '';
 
     if (projects.length === 0) {
-        list.innerHTML = '<tr><td colspan="7" class="text-center text-muted">Nenhum projeto encontrado</td></tr>';
+        list.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Nenhum projeto encontrado</td></tr>';
         return;
     }
 
@@ -265,15 +320,17 @@ async function applyFilters() {
                 <button class="btn btn-sm btn-outline-success" onclick="updateStatus(${p.id}, 'Concluído')" title="Marcar como concluído">
                     <i class="bi bi-check-lg"></i>
                 </button>
+                <button class="btn btn-sm btn-outline-info" onclick="openEmailModal(${p.id})" title="Enviar e-mail">
+                    <i class="bi bi-envelope"></i>
+                </button>
             </td>
         `;
         list.appendChild(row);
     });
 }
 
-// ===== FUNÇÕES DE OBSERVAÇÕES =====
+// ===== FUNÇÕES DE OBSERVAÇÕES (CORRIGIDAS) =====
 
-let currentProjectId = null;
 async function openObs(id) {
     currentProjectId = id;
     const response = await fetch(`/api/projects/${id}/observations`);
@@ -287,7 +344,14 @@ async function openObs(id) {
         </div>
     `).join('') || '<p class="text-muted">Nenhuma observação registrada.</p>';
     
-    new bootstrap.Modal(document.getElementById('obsModal')).show();
+    // Fechar modal anterior se existir
+    if (obsModalInstance) {
+        obsModalInstance.hide();
+    }
+    
+    // Criar nova instância do modal
+    obsModalInstance = new bootstrap.Modal(document.getElementById('obsModal'));
+    obsModalInstance.show();
 }
 
 document.getElementById('btn-save-obs').addEventListener('click', async () => {
@@ -302,7 +366,18 @@ document.getElementById('btn-save-obs').addEventListener('click', async () => {
 
     if (response.ok) {
         document.getElementById('new-obs-content').value = '';
-        openObs(currentProjectId);
+        // Recarregar observações sem fechar o modal
+        const obsResponse = await fetch(`/api/projects/${currentProjectId}/observations`);
+        const obsData = await obsResponse.json();
+        
+        const list = document.getElementById('obs-list');
+        list.innerHTML = obsData.map(o => `
+            <div class="obs-item">
+                <span class="obs-date">${o.timestamp}</span>
+                ${o.content}
+            </div>
+        `).join('') || '<p class="text-muted">Nenhuma observação registrada.</p>';
+        
         showAlert('Observação adicionada!', 'success');
     }
 });
@@ -317,9 +392,49 @@ async function updateStatus(id, status) {
     if (response.ok) {
         loadProjects();
         loadStats();
+        loadAlerts();
         showAlert('Status atualizado!', 'success');
     }
 }
+
+// ===== FUNÇÕES DE E-MAIL =====
+
+async function openEmailModal(projectId) {
+    const response = await fetch(`/api/projects/${projectId}`);
+    const project = await response.json();
+    
+    document.getElementById('emailProjectId').value = projectId;
+    document.getElementById('emailProjectName').textContent = project.name;
+    document.getElementById('emailProjectContact').textContent = project.contact;
+    document.getElementById('emailSubject').value = `Atualização - Projeto ${project.name}`;
+    document.getElementById('emailMessage').value = '';
+    
+    new bootstrap.Modal(document.getElementById('emailModal')).show();
+}
+
+document.getElementById('emailForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const projectId = document.getElementById('emailProjectId').value;
+    const subject = document.getElementById('emailSubject').value;
+    const message = document.getElementById('emailMessage').value;
+    
+    const response = await fetch(`/api/projects/${projectId}/send-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subject, message })
+    });
+    
+    const result = await response.json();
+    
+    if (response.ok) {
+        bootstrap.Modal.getInstance(document.getElementById('emailModal')).hide();
+        e.target.reset();
+        showAlert('E-mail enviado com sucesso!', 'success');
+    } else {
+        showAlert(`Erro: ${result.error}`, 'danger');
+    }
+});
 
 // ===== FUNÇÕES DE IMPORTAÇÃO/EXPORTAÇÃO =====
 
@@ -376,6 +491,7 @@ async function importFromExcel() {
             bootstrap.Modal.getInstance(document.getElementById('importModal')).hide();
             loadProjects();
             loadStats();
+            loadAlerts();
         } else {
             showAlert(`Erro: ${result.error}`, 'danger');
         }
