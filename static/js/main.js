@@ -1,15 +1,24 @@
 let deliveryChart, clientChart, revenueChart;
 let currentProjectId = null;
 let obsModalInstance = null;
+let alertsShown = {}; // Rastrear alertas já mostrados
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Criar container de toasts
+    if (!document.getElementById('toast-container')) {
+        const toastContainer = document.createElement('div');
+        toastContainer.id = 'toast-container';
+        toastContainer.className = 'toast-container';
+        document.body.appendChild(toastContainer);
+    }
+
     loadProjects();
     loadStats();
     loadAlerts();
     initCharts();
     
-    // Atualizar alertas a cada 30 segundos
-    setInterval(loadAlerts, 30000);
+    // Atualizar alertas a cada 10 segundos (mais rápido)
+    setInterval(loadAlerts, 10000);
 
     // Evento para criar novo projeto
     document.getElementById('projectForm').addEventListener('submit', async (e) => {
@@ -29,9 +38,9 @@ document.addEventListener('DOMContentLoaded', () => {
             loadProjects();
             loadStats();
             loadAlerts();
-            showAlert('Projeto criado com sucesso!', 'success');
+            showToast('Projeto criado com sucesso!', 'success', 'Sucesso');
         } else {
-            showAlert('Erro ao criar projeto!', 'danger');
+            showToast('Erro ao criar projeto!', 'danger', 'Erro');
         }
     });
 
@@ -61,9 +70,9 @@ document.addEventListener('DOMContentLoaded', () => {
             loadProjects();
             loadStats();
             loadAlerts();
-            showAlert('Projeto atualizado com sucesso!', 'success');
+            showToast('Projeto atualizado com sucesso!', 'success', 'Sucesso');
         } else {
-            showAlert('Erro ao atualizar projeto!', 'danger');
+            showToast('Erro ao atualizar projeto!', 'danger', 'Erro');
         }
     });
 
@@ -101,6 +110,9 @@ async function loadProjects() {
                 <button class="btn btn-sm btn-outline-info" onclick="openEmailModal(${p.id})" title="Enviar e-mail">
                     <i class="bi bi-envelope"></i>
                 </button>
+                <button class="btn btn-sm btn-outline-warning" onclick="sendWhatsApp(${p.id})" title="Enviar WhatsApp">
+                    <i class="bi bi-whatsapp"></i>
+                </button>
             </td>
         `;
         list.appendChild(row);
@@ -133,43 +145,40 @@ async function loadStats() {
 async function loadAlerts() {
     const response = await fetch('/api/alerts');
     const alerts = await response.json();
-    const alertContainer = document.getElementById('alerts-container');
     
-    if (!alertContainer) return;
-    
-    alertContainer.innerHTML = '';
-    
-    if (alerts.length === 0) {
-        alertContainer.innerHTML = '<div class="alert alert-success"><i class="bi bi-check-circle"></i> Nenhum alerta no momento!</div>';
-        return;
-    }
-    
+    // Mostrar cada alerta como toast
     alerts.forEach(alert => {
-        const alertDiv = document.createElement('div');
-        alertDiv.className = `alert alert-${alert.severity} alert-dismissible fade show`;
-        alertDiv.setAttribute('role', 'alert');
+        const alertKey = `${alert.id}-${alert.type}`;
         
-        let icon = '';
-        switch(alert.type) {
-            case 'atrasado':
-            case 'vencido':
-                icon = '<i class="bi bi-exclamation-triangle-fill"></i>';
-                break;
-            case 'proximo_vencimento':
-                icon = '<i class="bi bi-clock-history"></i>';
-                break;
-            case 'em_andamento_longo':
-                icon = '<i class="bi bi-info-circle"></i>';
-                break;
+        // Só mostrar se não foi mostrado recentemente
+        if (!alertsShown[alertKey]) {
+            let icon = '';
+            let toastType = 'info';
+            
+            switch(alert.type) {
+                case 'atrasado':
+                case 'vencido':
+                    icon = '🚨';
+                    toastType = 'danger';
+                    break;
+                case 'proximo_vencimento':
+                    icon = '⏰';
+                    toastType = 'warning';
+                    break;
+                case 'em_andamento_longo':
+                    icon = 'ℹ️';
+                    toastType = 'info';
+                    break;
+            }
+            
+            showToast(alert.message, toastType, icon, 8000);
+            alertsShown[alertKey] = true;
+            
+            // Limpar do rastreamento após 5 minutos
+            setTimeout(() => {
+                delete alertsShown[alertKey];
+            }, 300000);
         }
-        
-        alertDiv.innerHTML = `
-            ${icon} <strong>${alert.message}</strong>
-            <br><small>${alert.action}</small>
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        `;
-        
-        alertContainer.appendChild(alertDiv);
     });
 }
 
@@ -272,9 +281,9 @@ async function deleteProject() {
             loadProjects();
             loadStats();
             loadAlerts();
-            showAlert('Projeto deletado com sucesso!', 'success');
+            showToast('Projeto deletado com sucesso!', 'success', '✓');
         } else {
-            showAlert('Erro ao deletar projeto!', 'danger');
+            showToast('Erro ao deletar projeto!', 'danger', '✗');
         }
     }
 }
@@ -322,6 +331,9 @@ async function applyFilters() {
                 </button>
                 <button class="btn btn-sm btn-outline-info" onclick="openEmailModal(${p.id})" title="Enviar e-mail">
                     <i class="bi bi-envelope"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-warning" onclick="sendWhatsApp(${p.id})" title="Enviar WhatsApp">
+                    <i class="bi bi-whatsapp"></i>
                 </button>
             </td>
         `;
@@ -378,7 +390,7 @@ document.getElementById('btn-save-obs').addEventListener('click', async () => {
             </div>
         `).join('') || '<p class="text-muted">Nenhuma observação registrada.</p>';
         
-        showAlert('Observação adicionada!', 'success');
+        showToast('Observação adicionada!', 'success', '✓');
     }
 });
 
@@ -393,7 +405,7 @@ async function updateStatus(id, status) {
         loadProjects();
         loadStats();
         loadAlerts();
-        showAlert('Status atualizado!', 'success');
+        showToast('Status atualizado!', 'success', '✓');
     }
 }
 
@@ -430,11 +442,46 @@ document.getElementById('emailForm').addEventListener('submit', async (e) => {
     if (response.ok) {
         bootstrap.Modal.getInstance(document.getElementById('emailModal')).hide();
         e.target.reset();
-        showAlert('E-mail enviado com sucesso!', 'success');
+        showToast('E-mail enviado com sucesso!', 'success', '✓');
     } else {
-        showAlert(`Erro: ${result.error}`, 'danger');
+        showToast(`Erro: ${result.error}`, 'danger', '✗');
     }
 });
+
+// ===== FUNÇÕES DE WHATSAPP =====
+
+async function sendWhatsApp(projectId) {
+    const response = await fetch(`/api/projects/${projectId}`);
+    const project = await response.json();
+    
+    // Extrair apenas números do contato (remover caracteres especiais)
+    const phoneNumber = project.contact.replace(/\D/g, '');
+    
+    if (!phoneNumber) {
+        showToast('Contato do cliente não contém um número de telefone válido!', 'danger', '⚠️');
+        return;
+    }
+    
+    // Mensagem padrão de conclusão
+    const message = `Olá! 👋\n\nInformamos que o serviço do projeto "${project.name}" (Protocolo: ${project.contract_protocol}) foi *concluído com sucesso*! ✅\n\nEstamos à disposição para qualquer dúvida ou ajuste necessário.\n\nAtenciosamente!`;
+    
+    // Codificar a mensagem para URL
+    const encodedMessage = encodeURIComponent(message);
+    
+    // Abrir WhatsApp Web com a mensagem
+    // Se o número não tiver código de país, adicionar +55 (Brasil)
+    let fullNumber = phoneNumber;
+    if (!phoneNumber.startsWith('55')) {
+        fullNumber = '55' + phoneNumber;
+    }
+    
+    const whatsappUrl = `https://wa.me/${fullNumber}?text=${encodedMessage}`;
+    
+    // Abrir em nova aba
+    window.open(whatsappUrl, '_blank');
+    
+    showToast('WhatsApp aberto! Verifique a mensagem pré-preenchida.', 'info', 'ℹ️');
+}
 
 // ===== FUNÇÕES DE IMPORTAÇÃO/EXPORTAÇÃO =====
 
@@ -453,9 +500,9 @@ async function exportToExcel() {
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
         
-        showAlert('Arquivo exportado com sucesso!', 'success');
+        showToast('Arquivo exportado com sucesso!', 'success', '✓');
     } catch (error) {
-        showAlert('Erro ao exportar arquivo!', 'danger');
+        showToast('Erro ao exportar arquivo!', 'danger', '✗');
         console.error(error);
     }
 }
@@ -465,7 +512,7 @@ async function importFromExcel() {
     const file = fileInput.files[0];
     
     if (!file) {
-        showAlert('Por favor, selecione um arquivo!', 'warning');
+        showToast('Por favor, selecione um arquivo!', 'warning', '⚠️');
         return;
     }
     
@@ -486,38 +533,60 @@ async function importFromExcel() {
                 message += `\n\nErros encontrados:\n${result.errors.join('\n')}`;
             }
             
-            showAlert(message, 'success');
+            showToast(message, 'success', '✓');
             fileInput.value = '';
             bootstrap.Modal.getInstance(document.getElementById('importModal')).hide();
             loadProjects();
             loadStats();
             loadAlerts();
         } else {
-            showAlert(`Erro: ${result.error}`, 'danger');
+            showToast(`Erro: ${result.error}`, 'danger', '✗');
         }
     } catch (error) {
-        showAlert('Erro ao importar arquivo!', 'danger');
+        showToast('Erro ao importar arquivo!', 'danger', '✗');
         console.error(error);
     }
 }
 
-// ===== FUNÇÃO AUXILIAR =====
+// ===== FUNÇÃO DE TOAST NOTIFICATIONS =====
 
-function showAlert(message, type) {
-    const alertDiv = document.createElement('div');
-    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
-    alertDiv.setAttribute('role', 'alert');
-    alertDiv.innerHTML = `
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+function showToast(message, type = 'info', title = '', duration = 5000) {
+    const container = document.getElementById('toast-container');
+    
+    // Mapear ícones por tipo
+    const icons = {
+        'success': '✓',
+        'danger': '✗',
+        'warning': '⚠️',
+        'info': 'ℹ️'
+    };
+    
+    const icon = title || icons[type] || 'ℹ️';
+    
+    // Criar elemento toast
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.innerHTML = `
+        <span class="toast-icon">${icon}</span>
+        <div class="toast-content">
+            <p class="toast-title">${type === 'success' ? 'Sucesso' : type === 'danger' ? 'Erro' : type === 'warning' ? 'Aviso' : 'Informação'}</p>
+            <p class="toast-message">${message}</p>
+        </div>
+        <button class="toast-close" onclick="this.parentElement.classList.add('hide'); setTimeout(() => this.parentElement.remove(), 300)">×</button>
     `;
     
-    // Inserir no topo do container
-    const container = document.querySelector('.container-fluid');
-    container.insertBefore(alertDiv, container.firstChild);
+    container.appendChild(toast);
     
-    // Remover após 5 segundos
+    // Remover automaticamente após o tempo especificado
     setTimeout(() => {
-        alertDiv.remove();
-    }, 5000);
+        if (toast.parentElement) {
+            toast.classList.add('hide');
+            setTimeout(() => toast.remove(), 300);
+        }
+    }, duration);
+}
+
+// Manter função showAlert para compatibilidade
+function showAlert(message, type) {
+    showToast(message, type);
 }

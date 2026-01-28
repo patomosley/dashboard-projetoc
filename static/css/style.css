@@ -196,3 +196,139 @@ body {
     font-weight: 600;
     font-size: 0.8rem;
 }
+
+/* Estilos para Toast Notifications */
+.toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.toast {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    padding: 16px;
+    min-width: 300px;
+    max-width: 400px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    animation: slideInRight 0.3s ease-out;
+    border-left: 4px solid #0d6efd;
+}
+
+.toast.success {
+    border-left-color: #198754;
+}
+
+.toast.success .toast-icon {
+    color: #198754;
+}
+
+.toast.warning {
+    border-left-color: #ffc107;
+}
+
+.toast.warning .toast-icon {
+    color: #ffc107;
+}
+
+.toast.danger {
+    border-left-color: #dc3545;
+}
+
+.toast.danger .toast-icon {
+    color: #dc3545;
+}
+
+.toast.info {
+    border-left-color: #0d6efd;
+}
+
+.toast.info .toast-icon {
+    color: #0d6efd;
+}
+
+.toast-icon {
+    font-size: 20px;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.toast-content {
+    flex: 1;
+}
+
+.toast-title {
+    font-weight: 600;
+    color: #333;
+    margin: 0 0 4px 0;
+    font-size: 14px;
+}
+
+.toast-message {
+    color: #666;
+    font-size: 13px;
+    margin: 0;
+    line-height: 1.4;
+}
+
+.toast-close {
+    background: none;
+    border: none;
+    color: #999;
+    cursor: pointer;
+    font-size: 18px;
+    padding: 0;
+    flex-shrink: 0;
+    transition: color 0.2s;
+}
+
+.toast-close:hover {
+    color: #333;
+}
+
+.toast.hide {
+    animation: slideOutRight 0.3s ease-out forwards;
+}
+
+@keyframes slideInRight {
+    from {
+        opacity: 0;
+        transform: translateX(100px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes slideOutRight {
+    from {
+        opacity: 1;
+        transform: translateX(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateX(100px);
+    }
+}
+
+/* Responsividade para toasts */
+@media (max-width: 576px) {
+    .toast-container {
+        top: 10px;
+        right: 10px;
+        left: 10px;
+    }
+    
+    .toast {
+        min-width: auto;
+        max-width: none;
+    }
+}
