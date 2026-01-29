@@ -245,6 +245,10 @@ def get_alerts():
     today = datetime.now().date()
     
     for project in projects:
+        # Ignorar projetos cancelados ou concluídos
+        if project.status in ['Cancelado', 'Concluído']:
+            continue
+        
         alert_data = {
             'id': project.id,
             'project_name': project.name,
@@ -274,7 +278,7 @@ def get_alerts():
             alerts.append(alert_data)
         
         # Alerta 3: Projetos vencidos
-        if scheduled_date < today and project.status != 'Concluído':
+        if scheduled_date < today and project.status not in ['Concluído', 'Cancelado']:
             alert_data['type'] = 'vencido'
             alert_data['severity'] = 'danger'
             alert_data['message'] = f'Projeto "{project.name}" está vencido há {(today - scheduled_date).days} dia(s)!'
@@ -315,7 +319,8 @@ def get_stats():
             'Pendente': Project.query.filter_by(status='Pendente').count(),
             'Em Andamento': Project.query.filter_by(status='Em Andamento').count(),
             'Concluído': Project.query.filter_by(status='Concluído').count(),
-            'Atrasado': Project.query.filter_by(status='Atrasado').count()
+            'Atrasado': Project.query.filter_by(status='Atrasado').count(),
+            'Cancelado': Project.query.filter_by(status='Cancelado').count()
         },
         'client_types': {
             'B2G': Project.query.filter_by(client_type='B2G').count(),

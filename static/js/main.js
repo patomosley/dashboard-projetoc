@@ -124,6 +124,7 @@ function getStatusColor(status) {
         case 'Concluído': return 'success';
         case 'Em Andamento': return 'primary';
         case 'Atrasado': return 'danger';
+        case 'Cancelado': return 'secondary';
         default: return 'warning';
     }
 }
@@ -187,11 +188,11 @@ function initCharts() {
     deliveryChart = new Chart(ctxDelivery, {
         type: 'bar',
         data: {
-            labels: ['Pendente', 'Em Andamento', 'Concluído', 'Atrasado'],
+            labels: ['Pendente', 'Em Andamento', 'Concluído', 'Atrasado', 'Cancelado'],
             datasets: [{
                 label: 'Projetos',
-                data: [0, 0, 0, 0],
-                backgroundColor: ['#ffc107', '#0d6efd', '#198754', '#dc3545']
+                data: [0, 0, 0, 0, 0],
+                backgroundColor: ['#ffc107', '#0d6efd', '#198754', '#dc3545', '#6c757d']
             }]
         },
         options: { responsive: true, maintainAspectRatio: false }
@@ -233,7 +234,8 @@ function updateCharts(stats) {
         stats.status_counts['Pendente'],
         stats.status_counts['Em Andamento'],
         stats.status_counts['Concluído'],
-        stats.status_counts['Atrasado']
+        stats.status_counts['Atrasado'],
+        stats.status_counts['Cancelado']
     ];
     deliveryChart.update();
 
