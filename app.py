@@ -299,7 +299,29 @@ def get_alerts():
 
 @app.route('/api/stats')
 def get_stats():
-    projects = Project.query.all()
+    # Parâmetros de filtro
+    status_filter = request.args.get('status', '').strip()
+    client_type_filter = request.args.get('client_type', '').strip()
+    search_query = request.args.get('search', '').strip()
+    
+    # Iniciar query
+    query = Project.query
+    
+    # Aplicar filtros
+    if status_filter:
+        query = query.filter_by(status=status_filter)
+    
+    if client_type_filter:
+        query = query.filter_by(client_type=client_type_filter)
+    
+    if search_query:
+        query = query.filter(
+            (Project.name.ilike(f'%{search_query}%')) |
+            (Project.contract_protocol.ilike(f'%{search_query}%')) |
+            (Project.contact.ilike(f'%{search_query}%'))
+        )
+    
+    projects = query.all()
     total_revenue = sum(p.monthly_value for p in projects)
     
     # Estatísticas por mês (para gráfico de receita/entregas)

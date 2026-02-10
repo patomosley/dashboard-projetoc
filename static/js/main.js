@@ -132,7 +132,10 @@ function getStatusColor(status) {
 async function loadStats() {
     const response = await fetch('/api/stats');
     const stats = await response.json();
+    updateDashboard(stats);
+}
 
+function updateDashboard(stats) {
     document.getElementById('stat-total-projects').innerText = stats.total_projects;
     document.getElementById('stat-total-revenue').innerText = `R$ ${stats.total_revenue.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
     document.getElementById('stat-pending').innerText = stats.status_counts['Pendente'] + stats.status_counts['Em Andamento'];
@@ -309,10 +312,8 @@ async function applyFilters() {
 
     if (projects.length === 0) {
         list.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Nenhum projeto encontrado</td></tr>';
-        return;
-    }
-
-    projects.forEach(p => {
+    } else {
+        projects.forEach(p => {
         const row = document.createElement('tr');
         row.innerHTML = `
             <td>${p.contract_protocol}</td>
@@ -340,7 +341,13 @@ async function applyFilters() {
             </td>
         `;
         list.appendChild(row);
-    });
+        });
+    }
+    
+    // Atualizar dashboard com dados filtrados
+    const statsResponse = await fetch(`/api/stats?${params.toString()}`);
+    const stats = await statsResponse.json();
+    updateDashboard(stats);
 }
 
 // ===== FUNÇÕES DE OBSERVAÇÕES (CORRIGIDAS) =====
