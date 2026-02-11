@@ -15,6 +15,8 @@ document.addEventListener('DOMContentLoaded', () => {
     loadProjects();
     loadStats();
     loadAlerts();
+    loadTechnologies();
+    loadServices();
     initCharts();
     
     // Atualizar alertas a cada 10 segundos (mais rápido)
@@ -106,9 +108,6 @@ async function loadProjects() {
                 </button>
                 <button class="btn btn-sm btn-outline-success" onclick="updateStatus(${p.id}, 'Concluído')" title="Marcar como concluído">
                     <i class="bi bi-check-lg"></i>
-                </button>
-                <button class="btn btn-sm btn-outline-info" onclick="openEmailModal(${p.id})" title="Enviar e-mail">
-                    <i class="bi bi-envelope"></i>
                 </button>
                 <button class="btn btn-sm btn-outline-warning" onclick="sendWhatsApp(${p.id})" title="Enviar WhatsApp">
                     <i class="bi bi-whatsapp"></i>
@@ -269,6 +268,8 @@ async function openEditModal(id) {
     document.getElementById('edit_scheduled_date').value = project.scheduled_date;
     document.getElementById('edit_client_type').value = project.client_type;
     document.getElementById('edit_status').value = project.status;
+    document.getElementById('edit_technology').value = project.technology || '';
+    document.getElementById('edit_service').value = project.service || '';
     
     new bootstrap.Modal(document.getElementById('editProjectModal')).show();
 }
@@ -331,9 +332,6 @@ async function applyFilters() {
                 </button>
                 <button class="btn btn-sm btn-outline-success" onclick="updateStatus(${p.id}, 'Concluído')" title="Marcar como concluído">
                     <i class="bi bi-check-lg"></i>
-                </button>
-                <button class="btn btn-sm btn-outline-info" onclick="openEmailModal(${p.id})" title="Enviar e-mail">
-                    <i class="bi bi-envelope"></i>
                 </button>
                 <button class="btn btn-sm btn-outline-warning" onclick="sendWhatsApp(${p.id})" title="Enviar WhatsApp">
                     <i class="bi bi-whatsapp"></i>
@@ -417,45 +415,6 @@ async function updateStatus(id, status) {
         showToast('Status atualizado!', 'success', '✓');
     }
 }
-
-// ===== FUNÇÕES DE E-MAIL =====
-
-async function openEmailModal(projectId) {
-    const response = await fetch(`/api/projects/${projectId}`);
-    const project = await response.json();
-    
-    document.getElementById('emailProjectId').value = projectId;
-    document.getElementById('emailProjectName').textContent = project.name;
-    document.getElementById('emailProjectContact').textContent = project.contact;
-    document.getElementById('emailSubject').value = `Atualização - Projeto ${project.name}`;
-    document.getElementById('emailMessage').value = '';
-    
-    new bootstrap.Modal(document.getElementById('emailModal')).show();
-}
-
-document.getElementById('emailForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const projectId = document.getElementById('emailProjectId').value;
-    const subject = document.getElementById('emailSubject').value;
-    const message = document.getElementById('emailMessage').value;
-    
-    const response = await fetch(`/api/projects/${projectId}/send-email`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subject, message })
-    });
-    
-    const result = await response.json();
-    
-    if (response.ok) {
-        bootstrap.Modal.getInstance(document.getElementById('emailModal')).hide();
-        e.target.reset();
-        showToast('E-mail enviado com sucesso!', 'success', '✓');
-    } else {
-        showToast(`Erro: ${result.error}`, 'danger', '✗');
-    }
-});
 
 // ===== FUNÇÕES DE WHATSAPP =====
 
@@ -599,3 +558,146 @@ function showToast(message, type = 'info', title = '', duration = 5000) {
 function showAlert(message, type) {
     showToast(message, type);
 }
+
+
+// ===== FUNÇÕES DE TECNOLOGIAS E SERVIÇOS =====
+
+async function loadTechnologies() {
+    try {
+        const response = await fetch('/api/technologies');
+        const technologies = await response.json();
+        
+        // Atualizar select de novo projeto
+        const newTechSelect = document.getElementById('new_technology');
+        newTechSelect.innerHTML = '<option value="">Selecione uma tecnologia...</option>';
+        technologies.forEach(tech => {
+            const option = document.createElement('option');
+            option.value = tech.name;
+            option.textContent = tech.name;
+            newTechSelect.appendChild(option);
+        });
+        
+        // Atualizar select de edição
+        const editTechSelect = document.getElementById('edit_technology');
+        editTechSelect.innerHTML = '<option value="">Selecione uma tecnologia...</option>';
+        technologies.forEach(tech => {
+            const option = document.createElement('option');
+            option.value = tech.name;
+            option.textContent = tech.name;
+            editTechSelect.appendChild(option);
+        });
+    } catch (error) {
+        console.error('Erro ao carregar tecnologias:', error);
+    }
+}
+
+async function loadServices() {
+    try {
+        const response = await fetch('/api/services');
+        const services = await response.json();
+        
+        // Atualizar select de novo projeto
+        const newServiceSelect = document.getElementById('new_service');
+        newServiceSelect.innerHTML = '<option value="">Selecione um serviço...</option>';
+        services.forEach(service => {
+            const option = document.createElement('option');
+            option.value = service.name;
+            option.textContent = service.name;
+            newServiceSelect.appendChild(option);
+        });
+        
+        // Atualizar select de edição
+        const editServiceSelect = document.getElementById('edit_service');
+        editServiceSelect.innerHTML = '<option value="">Selecione um serviço...</option>';
+        services.forEach(service => {
+            const option = document.createElement('option');
+            option.value = service.name;
+            option.textContent = service.name;
+            editServiceSelect.appendChild(option);
+        });
+    } catch (error) {
+        console.error('Erro ao carregar serviços:', error);
+    }
+}
+
+function openAddTechnologyModal() {
+    new bootstrap.Modal(document.getElementById('addTechnologyModal')).show();
+}
+
+function openAddServiceModal() {
+    new bootstrap.Modal(document.getElementById('addServiceModal')).show();
+}
+
+// Evento para adicionar nova tecnologia
+document.addEventListener('DOMContentLoaded', () => {
+    const addTechForm = document.getElementById('addTechnologyForm');
+    if (addTechForm) {
+        addTechForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('technologyName').value.trim();
+            
+            if (!name) {
+                showToast('Nome da tecnologia é obrigatório', 'warning', '⚠️');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/technologies', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name })
+                });
+                
+                if (response.ok) {
+                    bootstrap.Modal.getInstance(document.getElementById('addTechnologyModal')).hide();
+                    document.getElementById('technologyName').value = '';
+                    loadTechnologies();
+                    showToast('Tecnologia adicionada com sucesso!', 'success', '✓');
+                } else {
+                    const error = await response.json();
+                    showToast(error.error || 'Erro ao adicionar tecnologia', 'danger', '✗');
+                }
+            } catch (error) {
+                showToast('Erro ao adicionar tecnologia!', 'danger', '✗');
+                console.error(error);
+            }
+        });
+    }
+});
+
+// Evento para adicionar novo serviço
+document.addEventListener('DOMContentLoaded', () => {
+    const addServiceForm = document.getElementById('addServiceForm');
+    if (addServiceForm) {
+        addServiceForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('serviceName').value.trim();
+            
+            if (!name) {
+                showToast('Nome do serviço é obrigatório', 'warning', '⚠️');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/services', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name })
+                });
+                
+                if (response.ok) {
+                    bootstrap.Modal.getInstance(document.getElementById('addServiceModal')).hide();
+                    document.getElementById('serviceName').value = '';
+                    loadServices();
+                    showToast('Serviço adicionado com sucesso!', 'success', '✓');
+                } else {
+                    const error = await response.json();
+                    showToast(error.error || 'Erro ao adicionar serviço', 'danger', '✗');
+                }
+            } catch (error) {
+                showToast('Erro ao adicionar serviço!', 'danger', '✗');
+                console.error(error);
+            }
+        });
+    }
+});

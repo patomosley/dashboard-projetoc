@@ -196,6 +196,24 @@
                                 <option value="B2B">B2B</option>
                             </select>
                         </div>
+                        <div class="mb-3">
+                            <label class="form-label">TECNOLOGIA DE ENTREGA</label>
+                            <div class="input-group">
+                                <select class="form-select" name="technology" id="new_technology">
+                                    <option value="">Selecione uma tecnologia...</option>
+                                </select>
+                                <button class="btn btn-outline-secondary" type="button" onclick="openAddTechnologyModal()">+</button>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">SERVIÇO A SER ENTREGUE</label>
+                            <div class="input-group">
+                                <select class="form-select" name="service" id="new_service">
+                                    <option value="">Selecione um serviço...</option>
+                                </select>
+                                <button class="btn btn-outline-secondary" type="button" onclick="openAddServiceModal()">+</button>
+                            </div>
+                        </div>
                         <button type="submit" class="btn btn-primary w-100">Salvar Projeto</button>
                     </form>
                 </div>
@@ -252,6 +270,24 @@
                                 <option value="Cancelado">Cancelado</option>
                             </select>
                         </div>
+                        <div class="mb-3">
+                            <label class="form-label">TECNOLOGIA DE ENTREGA</label>
+                            <div class="input-group">
+                                <select class="form-select" id="edit_technology">
+                                    <option value="">Selecione uma tecnologia...</option>
+                                </select>
+                                <button class="btn btn-outline-secondary" type="button" onclick="openAddTechnologyModal()">+</button>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">SERVIÇO A SER ENTREGUE</label>
+                            <div class="input-group">
+                                <select class="form-select" id="edit_service">
+                                    <option value="">Selecione um serviço...</option>
+                                </select>
+                                <button class="btn btn-outline-secondary" type="button" onclick="openAddServiceModal()">+</button>
+                            </div>
+                        </div>
                         <div class="d-flex gap-2">
                             <button type="submit" class="btn btn-primary flex-grow-1">Salvar Alterações</button>
                             <button type="button" class="btn btn-danger" onclick="deleteProject()">Deletar</button>
@@ -284,38 +320,42 @@
         </div>
     </div>
 
-    <!-- Modal Enviar E-mail -->
-    <div class="modal fade" id="emailModal" tabindex="-1">
+      <!-- Modal Adicionar Tecnologia -->
+    <div class="modal fade" id="addTechnologyModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Enviar E-mail para Cliente</h5>
+                    <h5 class="modal-title">Adicionar Tecnologia de Entrega</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <form id="emailForm">
-                        <input type="hidden" id="emailProjectId">
+                    <form id="addTechnologyForm">
                         <div class="mb-3">
-                            <label class="form-label">Projeto</label>
-                            <div class="alert alert-info mb-0">
-                                <strong id="emailProjectName"></strong>
-                            </div>
+                            <label class="form-label">Nome da Tecnologia</label>
+                            <input type="text" class="form-control" id="technologyName" placeholder="Ex: GPON+DRP" required>
                         </div>
+                        <button type="submit" class="btn btn-primary w-100">Adicionar</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Adicionar Serviço -->
+    <div class="modal fade" id="addServiceModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Adicionar Serviço</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="addServiceForm">
                         <div class="mb-3">
-                            <label class="form-label">Contato</label>
-                            <div class="alert alert-light mb-0">
-                                <strong id="emailProjectContact"></strong>
-                            </div>
+                            <label class="form-label">Nome do Serviço</label>
+                            <input type="text" class="form-control" id="serviceName" placeholder="Ex: L2L" required>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label">Assunto</label>
-                            <input type="text" class="form-control" id="emailSubject" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Mensagem</label>
-                            <textarea class="form-control" id="emailMessage" rows="5" required></textarea>
-                        </div>
-                        <button type="submit" class="btn btn-primary w-100">Enviar E-mail</button>
+                        <button type="submit" class="btn btn-primary w-100">Adicionar</button>
                     </form>
                 </div>
             </div>

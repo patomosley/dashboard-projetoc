@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for, send_file
-from models import db, Project, Observation
+from models import db, Project, Observation, Technology, Service
 from datetime import datetime, timedelta
 import os
 from io import BytesIO
@@ -505,6 +505,82 @@ def import_excel():
         
     except Exception as e:
         return jsonify({'error': f'Erro ao processar arquivo: {str(e)}'}), 400
+
+# ===== ENDPOINTS DE CONFIGURAÇÕES (TECNOLOGIAS E SERVIÇOS) =====
+
+@app.route('/api/technologies', methods=['GET'])
+def get_technologies():
+    """Retorna lista de tecnologias de entrega"""
+    technologies = Technology.query.order_by(Technology.name).all()
+    return jsonify([t.to_dict() for t in technologies])
+
+@app.route('/api/technologies', methods=['POST'])
+def create_technology():
+    """Cria uma nova tecnologia de entrega"""
+    data = request.get_json()
+    name = data.get('name', '').strip()
+    
+    if not name:
+        return jsonify({'error': 'Nome da tecnologia é obrigatório'}), 400
+    
+    # Verificar se já existe
+    if Technology.query.filter_by(name=name).first():
+        return jsonify({'error': 'Tecnologia já existe'}), 400
+    
+    tech = Technology(name=name)
+    db.session.add(tech)
+    db.session.commit()
+    
+    return jsonify(tech.to_dict()), 201
+
+@app.route('/api/technologies/<int:tech_id>', methods=['DELETE'])
+def delete_technology(tech_id):
+    """Deleta uma tecnologia de entrega"""
+    tech = Technology.query.get(tech_id)
+    if not tech:
+        return jsonify({'error': 'Tecnologia não encontrada'}), 404
+    
+    db.session.delete(tech)
+    db.session.commit()
+    
+    return jsonify({'message': 'Tecnologia deletada com sucesso'}), 200
+
+@app.route('/api/services', methods=['GET'])
+def get_services():
+    """Retorna lista de serviços"""
+    services = Service.query.order_by(Service.name).all()
+    return jsonify([s.to_dict() for s in services])
+
+@app.route('/api/services', methods=['POST'])
+def create_service():
+    """Cria um novo serviço"""
+    data = request.get_json()
+    name = data.get('name', '').strip()
+    
+    if not name:
+        return jsonify({'error': 'Nome do serviço é obrigatório'}), 400
+    
+    # Verificar se já existe
+    if Service.query.filter_by(name=name).first():
+        return jsonify({'error': 'Serviço já existe'}), 400
+    
+    service = Service(name=name)
+    db.session.add(service)
+    db.session.commit()
+    
+    return jsonify(service.to_dict()), 201
+
+@app.route('/api/services/<int:service_id>', methods=['DELETE'])
+def delete_service(service_id):
+    """Deleta um serviço"""
+    service = Service.query.get(service_id)
+    if not service:
+        return jsonify({'error': 'Serviço não encontrado'}), 404
+    
+    db.session.delete(service)
+    db.session.commit()
+    
+    return jsonify({'message': 'Serviço deletado com sucesso'}), 200
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
